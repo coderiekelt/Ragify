@@ -3,6 +3,7 @@ using System.Drawing;
 using SpotifyAPI.Local;
 using SpotifyAPI.Local.Models;
 using System;
+using Ragify.Widgets;
 
 [assembly: Rage.Attributes.Plugin("Ragify", Description = "Control Spotify from GTA V", Author = "Riekelt Brands")]
 namespace Ragify
@@ -11,40 +12,52 @@ namespace Ragify
     {
         public static void Main()
         {
-            Widget widget = new Widget();
+            //Widget widget = new Widget();
 
-            bool RenderHooked = false;
+            //bool RenderHooked = false;
 
             Context.Initialize();
             Config.Load();
+            WidgetManager.Initialize();
+
+            WidgetManager.Register("Track", new TrackWidget(0, 0, 300, 60));
+            WidgetManager.Register("Progress", new ProgressWidget(0, 0, 300, 5));
+            WidgetManager.Register("Update", new UpdateWidget(0, 0, 300, 30));
+
+            WidgetManager.Drawn["Update"] = false;
+
+            WidgetManager.GetWidget("Track").SetPositionFromBottomRightCorner(new PointF(300, 60));
+            WidgetManager.GetWidget("Update").SetPositionFromBottomRightCorner(new PointF(300, 90));
+            WidgetManager.GetWidget("Progress").SetPositionFromBottomRightCorner(new PointF(300, 5));
+
             Rage.Game.DisplayHelp("Ragify has successfully loaded. Use the [CTRL] key in combination with a command to control Spotify.");
+
+            Updates.CheckForUpdates();
 
             while(true)
             {
-                if (!Game.IsLoading && !RenderHooked)
-                {
-                    Game.FrameRender += widget.Draw;
-                    RenderHooked = true;
-                }
-
                 if (Game.IsControlKeyDownRightNow)
                 {
                     if (Game.IsKeyDown(Config.GetKey("toggleDisplay")))
                     {
-                        widget.ShouldDraw = !widget.ShouldDraw;
-                        Context.Displayed = !Context.Displayed;
+                        if (WidgetManager.Drawn.ContainsKey("Track") && WidgetManager.Drawn.ContainsKey("Progress"))
+                        {
+                            WidgetManager.Drawn["Track"] = !WidgetManager.Drawn["Track"];
+                            WidgetManager.Drawn["Progress"] = !WidgetManager.Drawn["Progress"];
+                            Context.Displayed = !Context.Displayed;
+                        }
                     }
 
                     if (Game.IsKeyDown(Config.GetKey("togglePlayback")))
                     {
                         if (Context.Playing)
                         {
-                            Game.DisplaySubtitle("Playback paused.");
+                            Game.DisplaySubtitle("Playback paused");
                             Context.Spotify.Pause();
                         } else
                         {
                             Context.Spotify.Play();
-                            Game.DisplaySubtitle("Playback resumed.");
+                            Game.DisplaySubtitle("Playback resumed");
                         }
                     }
 
@@ -61,37 +74,22 @@ namespace Ragify
                     if (Game.IsKeyDownRightNow(Config.GetKey("volumeUp")))
                     {
                         float volume = Context.Spotify.GetSpotifyVolume();
-                        if (volume >= 100.0)
+                        if (!(volume > 99.0))
                         {
-                            return;
-                        }
-
-                        volume += 0.1F;
-                        try
-                        {
+                            volume++;
                             Context.Spotify.SetSpotifyVolume(volume);
-                        } catch (Exception e) {}
-                        Context.HideVolume = Utils.GetCurrentTimestamp() + 4;
-                        Context.Volume = volume;
+                        }
                     }
 
                     if (Game.IsKeyDownRightNow(Config.GetKey("volumeDown")))
                     {
                         float volume = Context.Spotify.GetSpotifyVolume();
 
-                        if (volume <= 0.0)
+                        if (!(volume < 1.0))
                         {
-                            return;
-                        }
-
-                        volume -= 0.1F;
-                        try
-                        {
+                            volume--;
                             Context.Spotify.SetSpotifyVolume(volume);
                         }
-                        catch (Exception e) { }
-                        Context.HideVolume = Utils.GetCurrentTimestamp() + 4;
-                        Context.Volume = volume;
                     }
 
                 }
